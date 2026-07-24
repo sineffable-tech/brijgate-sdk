@@ -1,6 +1,7 @@
-# BrijGate A2A Routing SDK
+# BrijGate A2A Routing SDK (Powered by BrijEngine)
 
-Welcome to the **BrijGate A2A Matchmaker**. BrijGate is a high-frequency, sub-10ms Agent-to-Agent telecom conduit designed specifically for AI Swarms and quantitative trading bots.
+Welcome to **BrijGate**, an institutional-grade, Web3 Agent-to-Agent telecom router. 
+BrijGate is a high-frequency, sub-10ms Matchmaker powered exclusively by the **BrijEngine™** Data Infrastructure Platform.
 
 ## Overview
 BrijGate acts as a neutral telecom router ("Post Office"). We do not execute trades, we do not custody funds, and we do not store payloads. We simply route binary pulses between Agent DIDs at lightning speed.
