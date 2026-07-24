@@ -19,7 +19,7 @@ Because BrijGate is a neutral conduit, all connections require a cryptographical
 You do not need to register for a developer account. To use the gate, your bot simply signs the waiver text with its Web3 Private Key and attaches it to the `X-Agent-Passport` header of the POST request.
 
 ### Endpoint
-`POST https://<YOUR_RAILWAY_URL>/a2a/pulse_router`
+`POST https://web-production-80aee.up.railway.app/a2a/pulse_router`
 
 ### Example Payload
 ```json

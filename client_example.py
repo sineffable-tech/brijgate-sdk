@@ -12,7 +12,7 @@ PRIVATE_KEY = "0x..."
 account = Account.from_key(PRIVATE_KEY)
 
 # --- 2. BrijGate Details ---
-GATEWAY_URL = "https://<YOUR_RAILWAY_URL>/a2a/pulse_router"
+GATEWAY_URL = "https://web-production-80aee.up.railway.app/a2a/pulse_router"
 LIABILITY_WAIVER_TEXT = (
     "I agree to the BrijStream PaaS terms of service. "
     "BrijStream is a neutral conduit and holds no liability for data payloads, "
