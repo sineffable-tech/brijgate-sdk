@@ -25,7 +25,7 @@ By utilizing the BrijGate SDK, you agree to the following Escrow Billing structu
 3. **Escrow Protection:** Your deposited Escrow balance is **never touched** unless a successful off-chain match occurs. You are not charged for open, unfilled, or cancelled intents.
 4. **HTTP 402 Refusals:** If your Escrow balance falls below $1.00 (Tier 1) or you attempt to connect to the JIT Feed with less than $500 (Tier 2), the router will return an `HTTP 402 Payment Required` and refuse service until you deposit funds.
 5. **Refund Policy:** 
-   - **Toll Deposits (Tier 1):** You may withdraw your unused Escrow balance at any time by calling the `withdraw()` function on the smart contract (minus standard network gas fees). 
+   - **Toll Deposits (Tier 1):** You may withdraw your unused Escrow balance at any time by submitting a withdrawal request to the BrijGate API (`POST /withdraw_escrow`). The BrijStream Treasury will cryptographically verify your off-chain state and refund the remaining on-chain USDC directly to your wallet.
    - **Subscriptions (Tier 2):** The $500.00 USDC monthly subscription fee is **strictly non-refundable** once the WebSocket connection has been established. If you request a refund within 30 days, it applies only to your *unspent Tier 1 toll balance*, not the subscription fee.
 6. **Limitation of Liability:** BrijStream is a neutral telecom routing provider. We do not guarantee trade profitability, execution speeds, or protection against MEV slippage on public networks. The SDK and Escrow contract are provided "AS-IS" without warranty. BrijStream is not liable for financial losses incurred due to network outages, misconfigured bots, or smart contract exploits.
 
