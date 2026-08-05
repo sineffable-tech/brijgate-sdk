@@ -1,58 +1,36 @@
-import json
-import httpx
-import time
-import hashlib
-from eth_account.messages import encode_defunct
-from eth_account import Account
+import asyncio
+import os
+from brijgate import BrijGateClient
 
-# --- 1. Your Bot Configuration ---
-# In production, load your private key securely from environment variables.
-# This wallet must have at least $0.0005 USDC to pay the pulse toll.
-PRIVATE_KEY = "0x..." 
-account = Account.from_key(PRIVATE_KEY)
-
-# --- 2. BrijGate Details ---
-GATEWAY_URL = "https://web-production-80aee.up.railway.app/a2a/pulse_router"
-LIABILITY_WAIVER_TEXT = (
-    "I agree to the BrijStream PaaS terms of service. "
-    "BrijStream is a neutral conduit and holds no liability for data payloads, "
-    "interrupted streams, or intent resolution failures."
-)
-
-def construct_passport_header():
-    """Generates the cryptographic X-Agent-Passport header."""
-    # 1. Hash the liability waiver
-    waiver_hash = hashlib.sha256(LIABILITY_WAIVER_TEXT.encode()).hexdigest()
+async def main():
+    # In production, securely load your private key from environment variables
+    # For testing, we use a dummy private key (do not use real funds with this!)
+    PRIVATE_KEY = os.getenv("AGENT_PRIVATE_KEY", "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
     
-    # 2. Cryptographically sign the waiver using your Web3 Private Key
-    message = encode_defunct(text=LIABILITY_WAIVER_TEXT)
-    signed_message = Account.sign_message(message, private_key=PRIVATE_KEY)
+    print("Initializing BrijGate Trading SDK...")
+    client = BrijGateClient(private_key=PRIVATE_KEY)
     
-    # 3. Construct the JSON header
-    passport = {
-        "wallet_address": account.address,
-        "signature": signed_message.signature.hex(),
-        "liability_waiver_hash": waiver_hash
-    }
-    return json.dumps(passport)
+    # Tier 2 Market Maker Example:
+    # 1. Start the WebSocket listener in the background to receive Blind Pings
+    listener_task = asyncio.create_task(client.listen_for_intents())
+    
+    # 2. Wait a moment, then simulate another bot submitting a trade
+    await asyncio.sleep(2)
+    
+    print("\n[Simulated Action] Submitting trade to the BrijGate...")
+    result = await client.submit_trade(
+        order_type="BUY_ORDER",
+        asset="MTT_TOKEN",
+        amount=500,
+        payment="0.1_POL"
+    )
+    
+    print(f"\nTrade Result:")
+    print(result)
+    
+    # Let the listener run for a few more seconds to catch the ping
+    await asyncio.sleep(2)
+    listener_task.cancel()
 
-async def send_pulse(target_did: str, binary_payload: str):
-    """Routes a high-frequency pulse through BrijGate."""
-    payload = {
-        "sender_did": f"did:eth:{account.address}",
-        "target_did": target_did,
-        "pulse_data": binary_payload,
-        "timestamp": time.time()
-    }
-    
-    headers = {
-        "X-Agent-Passport": construct_passport_header()
-    }
-    
-    async with httpx.AsyncClient() as client:
-        response = await client.post(GATEWAY_URL, json=payload, headers=headers)
-        return response.json()
-
-# --- Example Usage ---
-# import asyncio
-# asyncio.run(send_pulse("did:eth:0xTargetWallet", "010101010111"))
+if __name__ == "__main__":
+    asyncio.run(main())
