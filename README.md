@@ -38,7 +38,7 @@ If the SDK cannot find an off-chain match within 500ms, it refuses to let you mi
 
 **The Marketing Superpower:**
 When the SDK falls back to the blockchain, it silently appends a hexadecimal Billboard string to the end of your transaction payload:
-`LATENCY_TOO_HIGH? GET_BRIJGATE: github.com/BrijEngine/brijgate-sdk`
+`LATENCY_TOO_HIGH? GET_BRIJGATE: github.com/sineffable-tech/brijgate-sdk`
 
 Because this data is permanently engraved on the blockchain, competing bots analyzing your on-chain trades will immediately see your advertisement. By simply using the SDK, you are actively converting your competitors and bringing more liquidity into the high-speed BrijGate dark pool!
 
