@@ -28,6 +28,80 @@ class BrijGateClient:
         )
         self.BILLBOARD_STRING = "LATENCY_TOO_HIGH? GET_BRIJGATE: github.com/BrijEngine/brijgate-sdk"
         self.WS_GATEWAY_URL = "wss://brijstream-production.up.railway.app/a2a/ws/intent_feed"
+        
+        # BrijGate Escrow Contract (Polygon Mainnet)
+        self.ESCROW_ADDRESS = Web3.to_checksum_address("0x7AcDfe098c7c4fE81D12A58CF69Cb29AffE83627")
+        self.USDC_ADDRESS = Web3.to_checksum_address("0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359")
+        
+        # Minimal ABIs
+        self.USDC_ABI = json.loads('[{"inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"name":"account","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"name":"owner","type":"address"},{"name":"spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]')
+        self.ESCROW_ABI = json.loads('[{"inputs":[{"name":"amount","type":"uint256"}],"name":"deposit","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"name":"bot","type":"address"}],"name":"getBalance","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]')
+
+    def deposit_escrow(self, amount_usdc: float):
+        """
+        Deposit USDC into the BrijGate Escrow contract.
+        This funds the bot's off-chain pulse fee balance.
+        Requires the bot's wallet to hold USDC and POL for gas.
+        
+        Args:
+            amount_usdc: Amount in USDC (e.g., 1.0 for $1.00)
+        Returns:
+            dict with tx_hash and amount
+        """
+        amount_raw = int(amount_usdc * (10 ** 6))  # USDC has 6 decimals
+        
+        usdc = self.w3.eth.contract(address=self.USDC_ADDRESS, abi=self.USDC_ABI)
+        escrow = self.w3.eth.contract(address=self.ESCROW_ADDRESS, abi=self.ESCROW_ABI)
+        
+        nonce = self.w3.eth.get_transaction_count(self.account.address)
+        gas_price = self.w3.eth.gas_price
+        
+        # Step 1: Approve USDC spend
+        print(f"📝 Approving ${amount_usdc:.2f} USDC spend for escrow...")
+        approve_tx = usdc.functions.approve(self.ESCROW_ADDRESS, amount_raw).build_transaction({
+            "from": self.account.address,
+            "nonce": nonce,
+            "gasPrice": gas_price,
+            "chainId": 137,
+            "gas": 60000,
+        })
+        signed_approve = self.w3.eth.account.sign_transaction(approve_tx, private_key=self.private_key)
+        approve_hash = self.w3.eth.send_raw_transaction(signed_approve.raw_transaction)
+        self.w3.eth.wait_for_transaction_receipt(approve_hash, timeout=60)
+        print(f"   ✅ Approved. TxHash: {approve_hash.hex()}")
+        
+        # Step 2: Deposit into escrow
+        print(f"💰 Depositing ${amount_usdc:.2f} USDC into escrow...")
+        nonce += 1
+        deposit_tx = escrow.functions.deposit(amount_raw).build_transaction({
+            "from": self.account.address,
+            "nonce": nonce,
+            "gasPrice": gas_price,
+            "chainId": 137,
+            "gas": 80000,
+        })
+        signed_deposit = self.w3.eth.account.sign_transaction(deposit_tx, private_key=self.private_key)
+        deposit_hash = self.w3.eth.send_raw_transaction(signed_deposit.raw_transaction)
+        receipt = self.w3.eth.wait_for_transaction_receipt(deposit_hash, timeout=60)
+        
+        print(f"   ✅ Deposited! TxHash: {deposit_hash.hex()}")
+        print(f"   🔗 PolygonScan: https://polygonscan.com/tx/0x{deposit_hash.hex()}")
+        
+        return {
+            "tx_hash": deposit_hash.hex(),
+            "amount_usdc": amount_usdc,
+            "block": receipt["blockNumber"],
+            "gas_used": receipt["gasUsed"]
+        }
+    
+    def get_escrow_balance(self):
+        """
+        Check this bot's current escrow balance in the on-chain contract.
+        Returns balance in USDC.
+        """
+        escrow = self.w3.eth.contract(address=self.ESCROW_ADDRESS, abi=self.ESCROW_ABI)
+        balance_raw = escrow.functions.getBalance(self.account.address).call()
+        return balance_raw / (10 ** 6)
 
     async def listen_for_intents(self, on_ping_callback=None):
         """
