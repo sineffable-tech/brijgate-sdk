@@ -20,24 +20,27 @@ class BrijGateClient:
         self.account = Account.from_key(private_key)
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
         
-        self.GATEWAY_URL = "https://web-production-80aee.up.railway.app/a2a/pulse_router"
+        self.GATEWAY_URL = "https://brijstream-production.up.railway.app/a2a/pulse_router"
         self.LIABILITY_WAIVER = (
             "I agree to the BrijStream PaaS terms of service. "
             "BrijStream is a neutral conduit and holds no liability for data payloads, "
             "interrupted streams, or intent resolution failures."
         )
         self.BILLBOARD_STRING = "LATENCY_TOO_HIGH? GET_BRIJGATE: github.com/BrijEngine/brijgate-sdk"
-        self.WS_GATEWAY_URL = "ws://web-production-80aee.up.railway.app/a2a/ws/intent_feed"
+        self.WS_GATEWAY_URL = "wss://brijstream-production.up.railway.app/a2a/ws/intent_feed"
 
-    async def listen_for_intents(self):
+    async def listen_for_intents(self, on_ping_callback=None):
         """
         Tier 2 Feature: Connects to the JIT WebSocket feed.
         Receives Blind Pings when new counterparties enter the Matchmaker lobby.
         """
         uri = f"{self.WS_GATEWAY_URL}?agent_wallet={self.account.address}"
+        headers = {
+            "X-Agent-Passport": self._get_passport()
+        }
         print(f"🔌 Connecting to BrijGate Tier 2 WebSocket Feed at {uri}...")
         try:
-            async with websockets.connect(uri) as websocket:
+            async with websockets.connect(uri, additional_headers=headers) as websocket:
                 response = await websocket.recv()
                 print(f"🟢 WebSocket Feed Connected: {response}")
                 
@@ -50,7 +53,8 @@ class BrijGateClient:
                         print(f"\n⚡ JIT PING RECEIVED! Agent {sender} entered the lobby.")
                         print(f"⏱️ Signal Latency: {latency:.2f}ms")
                         print(f"🔥 POUNCE NOW to match within 500ms!")
-                        # In a real bot, we would instantly trigger submit_trade here
+                        if on_ping_callback:
+                            asyncio.create_task(on_ping_callback(sender))
                         
         except websockets.exceptions.ConnectionClosedError as e:
             print(f"❌ WebSocket Disconnected. Subscription may have expired: {e}")
@@ -104,40 +108,42 @@ class BrijGateClient:
                 # The 500ms Off-Chain Sprint (Timeout = 0.5s)
                 response = await client.post(self.GATEWAY_URL, json=payload, headers=headers, timeout=0.5)
                 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("status") == "routed":
-                    latency_ms = (time.time() - start_time) * 1000
-                    counterparty = data.get("target")
-                    print(f"✅ OFF-CHAIN MATCH FOUND! Latency: {latency_ms:.2f}ms")
-                    print(f"🤝 Counterparty: {counterparty}")
-                    
-                    # Off-chain settlement logic
-                    print("⚡ Signing Off-Chain State Channel IOU for $0 gas fees...")
-                    
-                    state_hash = Web3.keccak(text=f"{order_type}:{asset}:{amount}:{payment}:{counterparty}").hex()
-                    message = encode_defunct(text=state_hash)
-                    signed_iou = Account.sign_message(message, private_key=self.private_key)
-                    
-                    sig_payload = {
-                        "match_id": f"match_{int(time.time())}",
-                        "signature": signed_iou.signature.hex(),
-                        "wallet_address": self.account.address,
-                        "state_hash": state_hash,
-                        "timestamp": time.time()
-                    }
-                    
-                    try:
-                        dropbox_url = self.GATEWAY_URL.replace("/pulse_router", "/submit_signature")
-                        await client.post(dropbox_url, json=sig_payload, headers=headers)
-                        print("📦 Signature securely dropped in BrijGate Redis for EOD Batching.")
-                    except Exception as e:
-                        print(f"⚠️ Warning: Failed to drop signature: {e}")
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("status") == "routed":
+                        latency_ms = (time.time() - start_time) * 1000
+                        counterparty = data.get("target")
+                        print(f"✅ OFF-CHAIN MATCH FOUND! Latency: {latency_ms:.2f}ms")
+                        print(f"🤝 Counterparty: {counterparty}")
                         
-                    return {"status": "success", "mode": "off-chain"}
+                        # Off-chain settlement logic
+                        print("⚡ Signing Off-Chain State Channel IOU for $0 gas fees...")
+                        
+                        state_hash = Web3.keccak(text=f"{order_type}:{asset}:{amount}:{payment}:{counterparty}").hex()
+                        message = encode_defunct(text=state_hash)
+                        signed_iou = Account.sign_message(message, private_key=self.private_key)
+                        
+                        sig_payload = {
+                            "match_id": f"match_{int(time.time())}",
+                            "signature": signed_iou.signature.hex(),
+                            "wallet_address": self.account.address,
+                            "state_hash": state_hash,
+                            "timestamp": time.time()
+                        }
+                        
+                        try:
+                            dropbox_url = self.GATEWAY_URL.replace("/pulse_router", "/submit_signature")
+                            await client.post(dropbox_url, json=sig_payload, headers=headers, timeout=5.0)
+                            print("📦 Signature securely dropped in BrijGate Redis for EOD Batching.")
+                        except Exception as e:
+                            print(f"⚠️ Warning: Failed to drop signature: {e}")
+                            
+                        return {"status": "success", "mode": "off-chain"}
+                else:
+                    print(f"❌ Server returned {response.status_code}: {response.text}")
                     
         except httpx.ReadTimeout:
-            # 500ms expired. Time to fallback and inject the billboard!
+            print("❌ Read Timeout")
             pass
             
         print("⏳ 500ms Matchmaker Timeout. No off-chain counterparties available.")
