@@ -63,7 +63,7 @@ class BrijGateClient:
             "nonce": nonce,
             "gasPrice": gas_price,
             "chainId": 137,
-            "gas": 60000,
+            "gas": 100000,
         })
         signed_approve = self.w3.eth.account.sign_transaction(approve_tx, private_key=self.private_key)
         approve_hash = self.w3.eth.send_raw_transaction(signed_approve.raw_transaction)
@@ -78,7 +78,7 @@ class BrijGateClient:
             "nonce": nonce,
             "gasPrice": gas_price,
             "chainId": 137,
-            "gas": 80000,
+            "gas": 150000,
         })
         signed_deposit = self.w3.eth.account.sign_transaction(deposit_tx, private_key=self.private_key)
         deposit_hash = self.w3.eth.send_raw_transaction(signed_deposit.raw_transaction)
